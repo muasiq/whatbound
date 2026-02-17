@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WhatsApp Outbound Messenger</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header>
+      <h1>📨 WhatsApp Outbound Messenger</h1>
+      <div id="connection-badge" class="badge badge-disconnected">Disconnected</div>
+    </header>
+
+    <!-- Step 1: QR / Authentication -->
+    <section id="auth-section" class="card">
+      <h2>Step 1 — Connect WhatsApp</h2>
+      <p class="hint">Scan the QR code with WhatsApp on your phone (Linked Devices → Link a Device)</p>
+      <div id="qr-container" class="qr-container">
+        <div class="spinner" id="qr-spinner"></div>
+        <p id="qr-status">Initialising… waiting for QR code</p>
+        <img id="qr-image" alt="QR Code" style="display:none" />
+      </div>
+      <div id="auth-ready" style="display:none">
+        <p class="success-text">✅ WhatsApp connected and ready!</p>
+        <button class="btn btn-sm btn-danger" onclick="logout()">Logout / Disconnect</button>
+      </div>
+    </section>
+
+    <!-- Step 2: Contacts -->
+    <section id="contacts-section" class="card disabled-section">
+      <h2>Step 2 — Add Contacts</h2>
+
+      <div class="tabs">
+        <button class="tab active" data-tab="csv-tab">Upload CSV</button>
+        <button class="tab" data-tab="manual-tab">Enter Manually</button>
+      </div>
+
+      <!-- CSV Upload -->
+      <div id="csv-tab" class="tab-content active">
+        <p class="hint">Upload a CSV with columns: <strong>phone</strong>, <strong>name</strong> (optional), <strong>company</strong> (optional)</p>
+        <div class="file-upload">
+          <input type="file" id="csv-file" accept=".csv" />
+          <button class="btn" onclick="uploadCSV()">Upload &amp; Parse</button>
+          <a href="sample-contacts.csv" download class="btn btn-sm btn-outline">Download Sample CSV</a>
+        </div>
+      </div>
+
+      <!-- Manual Entry -->
+      <div id="manual-tab" class="tab-content">
+        <p class="hint">One contact per line: <code>phone, name, company</code> (name & company optional)</p>
+        <textarea id="manual-contacts" rows="6" placeholder="919876543210, John Doe, Acme Corp&#10;447911123456, Jane Smith, Globex&#10;14155552671"></textarea>
+        <button class="btn" onclick="parseManual()">Add Contacts</button>
+      </div>
+
+      <!-- Contacts Table -->
+      <div id="contacts-table-wrap" style="display:none">
+        <h3>Contacts (<span id="contact-count">0</span>)</h3>
+        <div class="table-scroll">
+          <table id="contacts-table">
+            <thead>
+              <tr><th>#</th><th>Phone</th><th>Name</th><th>Company</th><th></th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <button class="btn btn-sm btn-danger" onclick="clearContacts()">Clear All</button>
+      </div>
+    </section>
+
+    <!-- Step 3: Compose & Send -->
+    <section id="send-section" class="card disabled-section">
+      <h2>Step 3 — Compose &amp; Send</h2>
+      <p class="hint">
+        Use placeholders: <code>{{name}}</code>, <code>{{company}}</code>, <code>{{phone}}</code>
+      </p>
+      <textarea id="message-template" rows="5" placeholder="Hi {{name}}, this is a message from our team at {{company}}. We'd love to connect with you!"></textarea>
+
+      <div class="send-options">
+        <label>
+          Delay between messages (seconds):
+          <input type="number" id="send-delay" value="3" min="1" max="60" />
+        </label>
+      </div>
+
+      <div class="actions">
+        <button id="send-btn" class="btn btn-primary" onclick="startSending()">🚀 Send Messages</button>
+        <button id="abort-btn" class="btn btn-danger" onclick="abortSending()" style="display:none">⛔ Abort</button>
+      </div>
+    </section>
+
+    <!-- Progress / Log -->
+    <section id="log-section" class="card" style="display:none">
+      <h2>Send Progress</h2>
+      <div class="progress-bar-wrap">
+        <div id="progress-bar" class="progress-bar" style="width:0%"></div>
+      </div>
+      <p id="progress-text">0 / 0</p>
+      <div class="stats">
+        <span class="stat stat-sent">Sent: <strong id="stat-sent">0</strong></span>
+        <span class="stat stat-failed">Failed: <strong id="stat-failed">0</strong></span>
+      </div>
+      <div class="table-scroll">
+        <table id="log-table">
+          <thead>
+            <tr><th>#</th><th>Phone</th><th>Name</th><th>Status</th><th>Error</th><th>Time</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
