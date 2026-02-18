@@ -141,34 +141,36 @@ class WhatsAppService extends EventEmitter {
           entry.status = "failed";
           entry.error = "WhatsApp client is not connected";
           failed++;
-          this.messageLog.push(entry);
-          this.emit("send_progress", { current: i + 1, total, sent, failed, entry });
-          if (i < contacts.length - 1 && !this.sendingAborted) await this._sleep(delayMs);
-          continue;
-        }
-
-        // Verify the number is on WhatsApp using getNumberId (more reliable than isRegisteredUser)
-        let targetId = chatId;
-        try {
-          const numberId = await this.client.getNumberId(chatId);
-          if (!numberId) {
-            entry.status = "failed";
-            entry.error = "Number not registered on WhatsApp";
-            failed++;
-            this.messageLog.push(entry);
-            this.emit("send_progress", { current: i + 1, total, sent, failed, entry });
-            if (i < contacts.length - 1 && !this.sendingAborted) await this._sleep(delayMs);
-            continue;
+        } else {
+          // Verify the number is on WhatsApp using getNumberId (more reliable than isRegisteredUser)
+          let targetId = chatId;
+          try {
+            const numberId = await this.client.getNumberId(chatId);
+            if (!numberId) {
+              entry.status = "failed";
+              entry.error = "Number not registered on WhatsApp";
+              failed++;
+            } else {
+              targetId = numberId._serialized;
+              // Only send if we successfully verified the number
+              await this.client.sendMessage(targetId, message);
+              entry.status = "sent";
+              sent++;
+            }
+          } catch (_checkErr) {
+            // If getNumberId fails, try sending directly anyway
+            console.warn("⚠️  Could not verify number, attempting to send directly:", _checkErr.message);
+            try {
+              await this.client.sendMessage(targetId, message);
+              entry.status = "sent";
+              sent++;
+            } catch (sendErr) {
+              entry.status = "failed";
+              entry.error = sendErr.message;
+              failed++;
+            }
           }
-          targetId = numberId._serialized;
-        } catch (_checkErr) {
-          // If getNumberId fails, try sending directly anyway
-          console.warn("⚠️  Could not verify number, attempting to send directly:", _checkErr.message);
         }
-
-        await this.client.sendMessage(targetId, message);
-        entry.status = "sent";
-        sent++;
       } catch (err) {
         entry.status = "failed";
         entry.error = err.message;
