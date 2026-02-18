@@ -101,13 +101,14 @@ class WhatsAppService extends EventEmitter {
    * Attempt to send a message to a single contact.
    * @private
    */
-  async _sendToContact(chatId, targetId, message) {
+  async _sendToContact(chatId, message) {
     // Verify client is still available
     if (!this.client || !this.isReady) {
       throw new Error("WhatsApp client is not connected");
     }
 
     // Try to verify the number first
+    let targetId = chatId;
     try {
       const numberId = await this.client.getNumberId(chatId);
       if (!numberId) {
@@ -167,7 +168,7 @@ class WhatsAppService extends EventEmitter {
       };
 
       try {
-        await this._sendToContact(chatId, chatId, message);
+        await this._sendToContact(chatId, message);
         entry.status = "sent";
         sent++;
       } catch (err) {
