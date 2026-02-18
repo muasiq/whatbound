@@ -98,6 +98,44 @@ class WhatsAppService extends EventEmitter {
   }
 
   /**
+   * Attempt to send a message to a single contact.
+   * @private
+   * @param {string} chatId - WhatsApp chat ID (phone number with @c.us suffix)
+   * @param {string} message - The message text to send
+   * @returns {Promise<void>}
+   * @throws {Error} If client is not connected or number is not registered
+   */
+  async _sendToContact(chatId, message) {
+    // Verify client is still available
+    if (!this.client || !this.isReady) {
+      throw new Error("WhatsApp client is not connected");
+    }
+
+    // Try to verify the number first
+    let targetId = chatId;
+    try {
+      const numberId = await this.client.getNumberId(chatId);
+      if (!numberId) {
+        throw new Error("Number not registered on WhatsApp");
+      }
+      targetId = numberId._serialized;
+    } catch (checkErr) {
+      // If getNumberId fails (e.g., temporary network issue), we'll attempt
+      // to send directly to the chatId as a fallback. The send may still succeed
+      // if the number is valid. Re-check client availability before attempting.
+      console.warn("⚠️  Could not verify number, attempting to send directly:", checkErr.message);
+      
+      if (!this.client || !this.isReady) {
+        throw new Error("WhatsApp client is not connected");
+      }
+      // Fall through to send with original chatId
+    }
+
+    // Send the message (using verified targetId or original chatId)
+    await this.client.sendMessage(targetId, message);
+  }
+
+  /**
    * Send messages to a list of contacts.
    * @param {Array<{phone:string, name?:string, company?:string}>} contacts
    * @param {string} messageTemplate – may contain {{name}}, {{company}}, {{phone}}
@@ -136,26 +174,7 @@ class WhatsAppService extends EventEmitter {
       };
 
       try {
-        // Verify the number is on WhatsApp using getNumberId (more reliable than isRegisteredUser)
-        let targetId = chatId;
-        try {
-          const numberId = await this.client.getNumberId(chatId);
-          if (!numberId) {
-            entry.status = "failed";
-            entry.error = "Number not registered on WhatsApp";
-            failed++;
-            this.messageLog.push(entry);
-            this.emit("send_progress", { current: i + 1, total, sent, failed, entry });
-            if (i < contacts.length - 1 && !this.sendingAborted) await this._sleep(delayMs);
-            continue;
-          }
-          targetId = numberId._serialized;
-        } catch (_checkErr) {
-          // If getNumberId fails, try sending directly anyway
-          console.warn("⚠️  Could not verify number, attempting to send directly:", _checkErr.message);
-        }
-
-        await this.client.sendMessage(targetId, message);
+        await this._sendToContact(chatId, message);
         entry.status = "sent";
         sent++;
       } catch (err) {
