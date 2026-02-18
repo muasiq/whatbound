@@ -160,21 +160,32 @@ class WhatsAppService extends EventEmitter {
           } catch (_checkErr) {
             // If getNumberId fails, try sending directly anyway
             console.warn("⚠️  Could not verify number, attempting to send directly:", _checkErr.message);
-            try {
-              await this.client.sendMessage(targetId, message);
-              entry.status = "sent";
-              sent++;
-            } catch (sendErr) {
+            // Check if client is still available before retry
+            if (this.client && this.isReady) {
+              try {
+                await this.client.sendMessage(targetId, message);
+                entry.status = "sent";
+                sent++;
+              } catch (sendErr) {
+                entry.status = "failed";
+                entry.error = sendErr.message;
+                failed++;
+              }
+            } else {
               entry.status = "failed";
-              entry.error = sendErr.message;
+              entry.error = "WhatsApp client is not connected";
               failed++;
             }
           }
         }
       } catch (err) {
-        entry.status = "failed";
-        entry.error = err.message;
-        failed++;
+        // Safety net for truly unexpected errors (e.g., out of memory, system errors)
+        // Only set status if it hasn't been set by inner blocks
+        if (entry.status === "pending") {
+          entry.status = "failed";
+          entry.error = err.message;
+          failed++;
+        }
       }
 
       this.messageLog.push(entry);
