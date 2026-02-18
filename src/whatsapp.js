@@ -100,6 +100,10 @@ class WhatsAppService extends EventEmitter {
   /**
    * Attempt to send a message to a single contact.
    * @private
+   * @param {string} chatId - WhatsApp chat ID (phone number with @c.us suffix)
+   * @param {string} message - The message text to send
+   * @returns {Promise<void>}
+   * @throws {Error} If client is not connected or number is not registered
    */
   async _sendToContact(chatId, message) {
     // Verify client is still available
@@ -116,16 +120,18 @@ class WhatsAppService extends EventEmitter {
       }
       targetId = numberId._serialized;
     } catch (checkErr) {
-      // If getNumberId fails, try sending directly anyway
+      // If getNumberId fails (e.g., temporary network issue), we'll attempt
+      // to send directly to the chatId as a fallback. The send may still succeed
+      // if the number is valid. Re-check client availability before attempting.
       console.warn("⚠️  Could not verify number, attempting to send directly:", checkErr.message);
       
-      // Re-check client availability before retry
       if (!this.client || !this.isReady) {
         throw new Error("WhatsApp client is not connected");
       }
+      // Fall through to send with original chatId
     }
 
-    // Send the message
+    // Send the message (using verified targetId or original chatId)
     await this.client.sendMessage(targetId, message);
   }
 
