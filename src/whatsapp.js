@@ -136,6 +136,17 @@ class WhatsAppService extends EventEmitter {
       };
 
       try {
+        // Check if client is still available before attempting to send
+        if (!this.client || !this.isReady) {
+          entry.status = "failed";
+          entry.error = "WhatsApp client is not connected";
+          failed++;
+          this.messageLog.push(entry);
+          this.emit("send_progress", { current: i + 1, total, sent, failed, entry });
+          if (i < contacts.length - 1 && !this.sendingAborted) await this._sleep(delayMs);
+          continue;
+        }
+
         // Verify the number is on WhatsApp using getNumberId (more reliable than isRegisteredUser)
         let targetId = chatId;
         try {
